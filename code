@@ -1,0 +1,137 @@
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <RF24.h>
+
+#define OLED_RESET    -1 // Reset pin is not used
+Adafruit_SSD1306 display(OLED_RESET);
+
+#define CE_PIN   9   // Пин для чип-энэйбла (CE pin)
+#define CSN_PIN 10   // Пин для chip select (CSN pin)
+#define SPEAKER_PIN 2  // Пин для подключения динамика
+
+RF24 radio(CE_PIN, CSN_PIN); // Создаем объект для работы с радио
+
+const uint64_t pipe = 0xE8E8F0F0E1LL; // Адрес канала
+
+void setup() {
+  Serial.begin(9600);
+
+  // Инициализация радио
+  radio.begin();
+  radio.openReadingPipe(1, pipe);
+  radio.startListening();
+
+  // Инициализация OLED дисплея
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Адрес 0x3C для 128x64
+
+  // Очистка дисплея
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("Receiver");
+  display.display();
+
+  // Настройка пина для динамика
+  pinMode(SPEAKER_PIN, OUTPUT);
+
+  // Вывод частоты на OLED дисплей
+  display.setCursor(0, 20);
+  display.print("Freq: ");
+  display.print(radio.getChannel());
+  display.display();
+}
+
+void loop() {
+  if (radio.available()) {
+    // Чтение данных с радио
+    int micValue = 0;
+    radio.read(&micValue, sizeof(micValue));
+    Serial.println(micValue);
+
+    // Отображение принятого значения на OLED дисплее
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("Mic Value:");
+    display.println(micValue);
+    display.display();
+
+    // Воспроизведение звука на динамике в зависимости от значения
+    if (micValue > 500) {
+      tone(SPEAKER_PIN, 1000);  // Пример звука: частота 1000 Гц
+      delay(200);  // Длительность звука
+      noTone(SPEAKER_PIN);  // Отключение звука
+    } else {
+      noTone(SPEAKER_PIN);  // Если микрофон не активен, отключаем звук
+    }
+
+    // Обновление значения частоты на OLED дисплее
+    display.setCursor(0, 20);
+    display.print("Freq: ");
+    display.print(radio.getChannel());
+    display.display();
+  }
+}
+
+
+
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <RF24.h>
+
+#define OLED_RESET    -1 // Reset pin is not used
+Adafruit_SSD1306 display(OLED_RESET);
+
+#define CE_PIN   9   // Пин для чип-энэйбла (CE pin)
+#define CSN_PIN 10   // Пин для chip select (CSN pin)
+#define MIC_PIN A0   // Пин для подключения микрофона
+
+RF24 radio(CE_PIN, CSN_PIN); // Создаем объект для работы с радио
+
+const uint64_t pipe = 0xE8E8F0F0E1LL; // Адрес канала
+
+void setup() {
+  Serial.begin(9600);
+
+  // Инициализация радио
+  radio.begin();
+  radio.openWritingPipe(pipe);
+
+  // Инициализация OLED дисплея
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Адрес 0x3C для 128x64
+
+  // Очистка дисплея
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("Transmitter");
+  display.display();
+
+  // Вывод частоты на OLED дисплей
+  display.setCursor(0, 20);
+  display.print("Freq: ");
+  display.print(radio.getChannel());
+  display.display();
+}
+
+void loop() {
+  // Чтение значения с микрофона
+  int micValue = analogRead(MIC_PIN);
+
+  // Отправка данных по радио
+  radio.write(&micValue, sizeof(micValue));
+
+  // Обновление значения частоты на OLED дисплее
+  display.setCursor(0, 20);
+  display.print("Freq: ");
+  display.print(radio.getChannel());
+  display.display();
+
+  // Задержка для стабилизации работы
+  delay(100);
+}
